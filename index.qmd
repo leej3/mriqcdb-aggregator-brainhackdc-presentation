@@ -20,7 +20,7 @@ format:
   <span class="tag">representative sampling</span>
   <span class="tag">typed PostgreSQL warehouse</span>
   <span class="tag">dedupe-aware API</span>
-  <span class="tag">dashboard design work</span>
+  <span class="tag">working dashboard frontend</span>
 </div>
 
 <div class="callout">
@@ -34,7 +34,7 @@ format:
 - pulled and archived representative raw MRIQC API payloads
 - loaded them into PostgreSQL with explicit typing and dedupe metadata
 - exposed dashboard-friendly read endpoints through FastAPI
-- iterated on a frontend/dashboard direction that is easier to discuss and demo
+- built a working frontend dashboard for metric comparison and dedupe-aware exploration
 
 <div class="stat-grid">
   <div class="stat"><span class="value">231,100</span><span class="label">sampled observations</span></div>
@@ -184,10 +184,10 @@ format:
 ## Frontend Tech Stack
 
 <div class="stack-grid">
-  <div class="stack-card"><span class="stack-label">UI</span><h3>React + TypeScript</h3><p>The dashboard direction uses the existing frontend scaffold in this repo and keeps the interface interactive and component-based.</p></div>
-  <div class="stack-card"><span class="stack-label">Build</span><h3>Vite</h3><p>Fast iteration for local development and a simple path for frontend-only experiments.</p></div>
-  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI</h3><p>The frontend reads from a thin backend that already exposes overview, metric, distribution, and duplicate endpoints.</p></div>
-  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL</h3><p>The backend is practical because the underlying data is now stored in typed, indexed tables rather than only via paged Mongo-backed API reads.</p></div>
+  <div class="stack-card"><span class="stack-label">UI</span><h3>React + TypeScript</h3><p>The current dashboard is a real React app with sidebar metric selection, dedupe-aware view switching, and a comparison grid.</p></div>
+  <div class="stack-card"><span class="stack-label">Build</span><h3>Vite</h3><p>Local iteration stays fast, and the dashboard can run in the compose stack alongside the API and database.</p></div>
+  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI</h3><p>The frontend reads from overview, metric summary, metric histogram, and duplicate endpoints exposed by the backend.</p></div>
+  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL</h3><p>The dashboard works because the data now lives in typed, indexed tables instead of only behind paged Mongo-backed API reads.</p></div>
 </div>
 
 <div class="callout">
@@ -220,7 +220,7 @@ GET /api/v1/modalities/{modality}/duplicates/{kind}
 ```
 
 - backend demo path is real now
-- frontend direction is concrete enough to discuss and iterate
+- frontend dashboard is real now and supports live metric comparison
 - the live presentation site is part of the demo story too
 :::
 :::
