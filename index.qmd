@@ -1,6 +1,6 @@
 ---
 title: "MRIQC DB Aggregator"
-subtitle: "From a page-oriented Mongo API to an analysis-ready dashboard"
+subtitle: "BrainhackDC 5-minute group update"
 author: "BrainhackDC working deck"
 date: 2026-04-17
 format:
@@ -8,139 +8,74 @@ format:
     footer: "MRIQC DB Aggregator"
 ---
 
-## Overview
+## Summary
 
 ::: {.hero-grid}
 ::: {.hero-copy}
-<div class="eyebrow">Project summary</div>
+<div class="eyebrow">What we built</div>
 
-<p class="lede"><strong>MRIQC DB Aggregator</strong> is the translation layer between the public MRIQC Web API and the kind of fast, dedupe-aware exploratory interface researchers actually need.</p>
+<p class="lede"><strong>MRIQC DB Aggregator</strong> is a backend-plus-dashboard effort to make MRIQC DB easier to explore than the current page-oriented public API allows.</p>
 
 <div class="tag-row">
-  <span class="tag">source contract first</span>
-  <span class="tag">raw payloads archived</span>
-  <span class="tag">typed PostgreSQL facts</span>
-  <span class="tag">dashboard-oriented API</span>
+  <span class="tag">representative sampling</span>
+  <span class="tag">typed PostgreSQL warehouse</span>
+  <span class="tag">dedupe-aware API</span>
+  <span class="tag">dashboard design work</span>
 </div>
 
 <div class="callout">
-  The problem is not the existence of MongoDB. The problem is that the public interface is optimized for paged document retrieval, not repeated analytical reads.
+  The core problem: the public MRIQC API is fine for record retrieval, but awkward for real-time analysis, filtering, and comparison.
 </div>
 :::
 
 ::: {.hero-panel}
-<div class="panel-title">Current snapshot</div>
+<div class="panel-title">This weekend’s outcome</div>
 
-- MRIQC DB stores MRIQC-derived quality metrics and source metadata for `T1w`, `T2w`, and `bold`.
-- The public service is page-oriented and capped at `max_results=50`.
-- That makes filtering, histograms, and duplicate-aware comparison awkward to do interactively.
+- pulled and archived representative raw MRIQC API payloads
+- loaded them into PostgreSQL with explicit typing and dedupe metadata
+- exposed dashboard-friendly read endpoints through FastAPI
+- iterated on a frontend/dashboard direction that is easier to discuss and demo
 
 <div class="stat-grid">
   <div class="stat"><span class="value">231,100</span><span class="label">sampled observations</span></div>
+  <div class="stat"><span class="value">3</span><span class="label">initial modalities</span></div>
   <div class="stat"><span class="value">676 MB</span><span class="label">raw JSON archived</span></div>
-  <div class="stat"><span class="value">2017-2025</span><span class="label">archive span in sample</span></div>
 </div>
 :::
 :::
 
-## Migration Strategy
+## Backend
 
 ::: {.grid-2}
 ::: {.card}
-<div class="panel-title">Principles</div>
+<div class="panel-title">Backend work</div>
 
-- Migrate against the application-level API contract, not MongoDB internals.
-- Save exact page payloads first so extraction and transformation are decoupled.
-- Keep the loader rerunnable from local raw payloads.
-- Preserve unknown fields in JSON extras instead of forcing premature normalization.
-
-<div class="quote-block">
-  Raw first, typed second, canonical later.
-</div>
-:::
-
-::: {.card}
-<div class="panel-title">Flow</div>
-
-```{mermaid}
-flowchart LR
-  A["MRIQC API<br/>Eve + MongoDB"] --> B["Representative page pull<br/>exact JSON saved"]
-  B --> C["Typed loaders<br/>T1w / T2w / bold"]
-  C --> D["PostgreSQL fact tables<br/>indexes + dedupe metadata"]
-  D --> E["FastAPI read layer<br/>overview / metrics / duplicates"]
-  E --> F["Dashboard"]
-```
-
-<p class="caption">This keeps parser changes cheap and preserves an audit trail back to the exact source payloads.</p>
-:::
-:::
-
-## Schema, Types, and Dedupe
-
-::: {.grid-2}
-::: {.card}
-<div class="panel-title">Schema and type choices</div>
-
-- Separate fact tables for `t1w`, `t2w`, and `bold`.
-- Shared columns aligned so a future `UNION ALL` view is still possible.
-- `source_api_id` used as the idempotent upsert key.
-- Identifiers kept as strings when the source contract treats them as strings.
-- Source fragments preserved in JSON extras for forward compatibility.
+- migrated against the application-level API contract, not Mongo internals
+- stored exact pulled payloads first, then parsed them into typed tables
+- kept `t1w`, `t2w`, and `bold` as separate fact tables
+- used `source_api_id` for idempotent upserts
+- preserved unknown fields in JSON extras instead of over-normalizing early
 
 <div class="pill-list">
+  <span class="pill">reproducible ingestion</span>
   <span class="pill">typed filters</span>
-  <span class="pill">timezone-aware dates</span>
-  <span class="pill">float IQMs</span>
-  <span class="pill">JSON overflow columns</span>
+  <span class="pill">safe reruns</span>
+  <span class="pill">forward-compatible schema</span>
 </div>
 :::
 
 ::: {.card}
-<div class="panel-title">Dedupe pressure</div>
+<div class="panel-title">Why this matters</div>
 
 <div class="metric-list">
-  <div class="metric"><span class="name">T1w exact groups</span><span class="number">3,047</span></div>
-  <div class="metric"><span class="name">T2w exact groups</span><span class="number">13,993</span></div>
-  <div class="metric"><span class="name">bold exact groups</span><span class="number">11,380</span></div>
-  <div class="metric"><span class="name">largest T1w group</span><span class="number">3,479 rows</span></div>
-  <div class="metric"><span class="name">largest T2w group</span><span class="number">71 rows</span></div>
-  <div class="metric"><span class="name">largest bold group</span><span class="number">76 rows</span></div>
+  <div class="metric"><span class="name">T1w exact duplicate groups</span><span class="number">3,047</span></div>
+  <div class="metric"><span class="name">T2w exact duplicate groups</span><span class="number">13,993</span></div>
+  <div class="metric"><span class="name">bold exact duplicate groups</span><span class="number">11,380</span></div>
+  <div class="metric"><span class="name">API layer now serves</span><span class="number">overview, metrics, duplicates</span></div>
 </div>
-
-- `dedupe_exact_key`: direct from `provenance.md5sum`
-- `dedupe_series_key`: modality-local identity hash
-- `raw`, `exact`, and `series` remain read semantics over the same base tables
-:::
-:::
-
-## Pipeline Reproducibility and Expected Gains
-
-::: {.grid-2}
-::: {.card}
-<div class="panel-title">Why the pipeline is reproducible</div>
-
-- Representative sampling is page-aware and rerunnable.
-- Loads are idempotent through `INSERT ... ON CONFLICT DO UPDATE`.
-- `db-init` and `db-load` are safe to rerun after parser or schema changes.
-- Unknown source fields are retained rather than dropped.
-
-<div class="timeline">
-  <div class="timeline-item"><div class="phase">Pull</div><div class="body">Archive representative raw API pages under `data/runs/<run-id>/raw/`.</div></div>
-  <div class="timeline-item"><div class="phase">Load</div><div class="body">Parse into typed fact rows and compute dedupe metadata.</div></div>
-  <div class="timeline-item"><div class="phase">Serve</div><div class="body">Read directly through a thin FastAPI layer while query patterns stabilize.</div></div>
-</div>
-:::
-
-::: {.card}
-<div class="panel-title">Expected improvements</div>
-
-- Indexed filters on manufacturer, model, version, task, and time.
-- Cheap SQL aggregates for overview cards, histograms, and missingness.
-- Dedupe-aware reads that do not distort reference distributions.
-- Clean path to materialized views for repeated hot queries.
 
 <div class="callout">
-  The storage layer is now aligned to the dashboard workload. Benchmarking the final p50/p95 query wins comes after the frontend settles on its real query patterns.
+  We now have a storage and API shape that matches repeated dashboard reads much better than the original page-oriented service.
 </div>
 :::
 :::
@@ -151,10 +86,10 @@ flowchart LR
 ::: {.card}
 <div class="panel-title">Design goals</div>
 
-- Start with overview plus drilldown.
-- Make `raw`, `exact`, and `series` visible everywhere.
-- Keep filtering focused on a small number of stable, meaningful fields.
-- Support the central researcher question: “How does this slice compare to the broader MRIQC reference set?”
+- start with overview plus drilldown
+- keep dedupe mode visible: `raw`, `exact`, `series`
+- make filtering simple and stable
+- support a clear researcher question: “how does this slice compare to the broader MRIQC reference set?”
 
 <div class="tag-row">
   <span class="tag">overview cards</span>
@@ -164,6 +99,24 @@ flowchart LR
 </div>
 :::
 
+::: {.card}
+<div class="panel-title">Design principle</div>
+
+<div class="quote-block">
+  Don’t make users think in API pages and raw documents. Let them think in modalities, filters, metrics, and comparisons.
+</div>
+
+<div class="timeline">
+  <div class="timeline-item"><div class="phase">Overview</div><div class="body">How much data is here, and what changes with dedupe mode?</div></div>
+  <div class="timeline-item"><div class="phase">Filter</div><div class="body">What happens if I slice by manufacturer, MRIQC version, date, or task?</div></div>
+  <div class="timeline-item"><div class="phase">Inspect</div><div class="body">What does one metric distribution or duplicate pattern actually look like?</div></div>
+</div>
+:::
+:::
+
+## Dashboard Design II
+
+::: {.grid-2}
 ::: {.card}
 <div class="panel-title">Wireframe direction</div>
 
@@ -213,65 +166,50 @@ flowchart LR
 </div>
 ```
 :::
-:::
 
-## Dashboard Design II
+::: {.card}
+<div class="panel-title">Features we are designing toward</div>
 
-::: {.feature-grid}
-::: {.feature-card}
-<div class="panel-title">Reference comparison</div>
+- cohort-versus-reference comparisons
+- saved views and shareable URLs
+- smarter serving layers for hot queries
+- clearer duplicate and missingness inspection
 
-Support cohort-versus-reference comparisons so a study can be placed against the broader MRIQC archive, not just inspected in isolation.
-:::
-
-::: {.feature-card}
-<div class="panel-title">Saved views</div>
-
-Persist filters and view mode in shareable URLs so analyses are reproducible and easy to discuss with collaborators.
-:::
-
-::: {.feature-card}
-<div class="panel-title">Serving optimizations</div>
-
-Add materialized views and pre-aggregated histograms only where real usage demonstrates repeated expensive reads.
-:::
-
-::: {.feature-card}
-<div class="panel-title">Data-quality workflows</div>
-
-Make duplicates, missingness, and metadata drift visible so the archive is easier to interpret and trust.
+<div class="callout">
+  The main design choice is to make the archive legible quickly, then let people drill down without losing context.
+</div>
 :::
 :::
 
-## Dashboard Tech Stack
+## Frontend Tech Stack
 
 <div class="stack-grid">
-  <div class="stack-card"><span class="stack-label">Frontend</span><h3>React + TypeScript + Vite</h3><p>Use the existing frontend scaffold as the dashboard surface for interactive exploration and comparison.</p></div>
-  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI</h3><p>Expose overview, metrics, distributions, missingness, extras, and duplicate summaries through a thin read layer.</p></div>
-  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL + SQLAlchemy</h3><p>Typed fact tables plus indexes and dedupe metadata make repeated analytical queries practical.</p></div>
-  <div class="stack-card"><span class="stack-label">Workflow</span><h3>Pixi + Docker Compose</h3><p>Keep local setup reproducible for sampling, loading, profiling, API work, and presentation builds.</p></div>
+  <div class="stack-card"><span class="stack-label">UI</span><h3>React + TypeScript</h3><p>The dashboard direction uses the existing frontend scaffold in this repo and keeps the interface interactive and component-based.</p></div>
+  <div class="stack-card"><span class="stack-label">Build</span><h3>Vite</h3><p>Fast iteration for local development and a simple path for frontend-only experiments.</p></div>
+  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI</h3><p>The frontend reads from a thin backend that already exposes overview, metric, distribution, and duplicate endpoints.</p></div>
+  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL</h3><p>The backend is practical because the underlying data is now stored in typed, indexed tables rather than only via paged Mongo-backed API reads.</p></div>
 </div>
 
 <div class="callout">
-  The presentation itself stays in a separate Quarto repo because that makes visual tuning and GitHub Pages deployment simple.
+  The important integration story is simple: React frontend, FastAPI read layer, PostgreSQL-backed data model.
 </div>
 
-## Demo Flow
+## Demo
 
 ::: {.grid-2}
 ::: {.card}
-<div class="panel-title">What to show live</div>
+<div class="panel-title">Demo flow</div>
 
 <div class="demo-steps">
-  <div class="demo-step"><div class="step-number">1</div><div><strong>Overview first.</strong> Show the modality counts and the difference between `raw`, `exact`, and `series`.</div></div>
-  <div class="demo-step"><div class="step-number">2</div><div><strong>Filter a slice.</strong> Narrow by manufacturer, MRIQC version, or task and keep the query responsive.</div></div>
-  <div class="demo-step"><div class="step-number">3</div><div><strong>Open a metric distribution.</strong> Reuse the same filters and compare the histogram across view modes.</div></div>
-  <div class="demo-step"><div class="step-number">4</div><div><strong>Inspect duplicates.</strong> Show why dedupe is necessary before treating the archive as a benchmark distribution.</div></div>
+  <div class="demo-step"><div class="step-number">1</div><div><strong>Start on overview.</strong> Show the high-level modality counts.</div></div>
+  <div class="demo-step"><div class="step-number">2</div><div><strong>Toggle dedupe mode.</strong> Contrast `raw`, `exact`, and `series`.</div></div>
+  <div class="demo-step"><div class="step-number">3</div><div><strong>Open one metric.</strong> Show that the same filters drive the histogram view.</div></div>
+  <div class="demo-step"><div class="step-number">4</div><div><strong>Inspect duplicates.</strong> Explain why this matters before using the archive as a benchmark set.</div></div>
 </div>
 :::
 
 ::: {.card}
-<div class="panel-title">Current backend surface</div>
+<div class="panel-title">Current status</div>
 
 ```text
 GET /api/v1/overview
@@ -281,9 +219,9 @@ GET /api/v1/modalities/{modality}/metrics/{field_name}
 GET /api/v1/modalities/{modality}/duplicates/{kind}
 ```
 
-- The backend demo path is already real.
-- The frontend can now be iterated against stable read semantics.
-- This slide can also act as a fallback if a full live demo is not ready.
+- backend demo path is real now
+- frontend direction is concrete enough to discuss and iterate
+- the live presentation site is part of the demo story too
 :::
 :::
 
@@ -291,25 +229,24 @@ GET /api/v1/modalities/{modality}/duplicates/{kind}
 
 ::: {.closing}
 ::: {.hero-copy}
-<div class="eyebrow">Next phase</div>
+<div class="eyebrow">What comes next</div>
 
-<p class="lede"><strong>Next up:</strong> make the dashboard genuinely useful, then optimize the serving layer based on actual usage instead of guesswork.</p>
+<p class="lede"><strong>Next phase:</strong> tighten the dashboard around real researcher workflows and optimize the storage/read path only where usage proves it matters.</p>
 
 <div class="roadmap">
-  <div class="roadmap-item"><h3>Normalize carefully</h3><p>Introduce subject, session, and scanner dimensions without inventing a fake universal scan key.</p></div>
-  <div class="roadmap-item"><h3>Benchmark reads</h3><p>Measure p50 and p95 query latency once the frontend settles on real interaction patterns.</p></div>
-  <div class="roadmap-item"><h3>Strengthen comparisons</h3><p>Support cohort-versus-reference workflows that help researchers interpret their own MRIQC outputs.</p></div>
-  <div class="roadmap-item"><h3>Operationalize sharing</h3><p>Decide where saved views, publishing, and auth controls add value once the dashboard exists.</p></div>
+  <div class="roadmap-item"><h3>Frontend</h3><p>Turn the current dashboard direction into a more complete interactive interface.</p></div>
+  <div class="roadmap-item"><h3>Serving</h3><p>Add materialized views or pre-aggregates once the hot queries are obvious.</p></div>
+  <div class="roadmap-item"><h3>Comparisons</h3><p>Support cohort-versus-reference workflows more directly.</p></div>
+  <div class="roadmap-item"><h3>Data model</h3><p>Normalize carefully around subjects, sessions, and scanners without inventing false universal keys.</p></div>
 </div>
 :::
 
 ::: {.hero-panel}
 <div class="panel-title">Takeaway</div>
 
-- Preserve source fidelity first.
-- Make ingestion rerunnable.
-- Keep dedupe explicit.
-- Shape storage around the dashboard workload.
-- Optimize only after the interface proves where the hot paths are.
+- we made MRIQC DB easier to query
+- we made the ingestion path reproducible
+- we made dedupe visible
+- we created a clearer dashboard direction for continued work
 :::
 :::
