@@ -461,6 +461,13 @@ body {
   margin-left: 0.25rem;
 }
 
+.dashboard-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #f8fbff;
+}
+
 .mock-dashboard {
   display: grid;
   grid-template-columns: 0.75fr 1.55fr;

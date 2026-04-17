@@ -17,29 +17,29 @@ format:
 <p class="lede"><strong>MRIQC DB Aggregator</strong> is a backend-plus-dashboard effort to make MRIQC DB easier to explore than the current page-oriented public API allows.</p>
 
 <div class="tag-row">
-  <span class="tag">representative sampling</span>
+  <span class="tag">resumable bulk ingest</span>
   <span class="tag">typed PostgreSQL warehouse</span>
   <span class="tag">dedupe-aware API</span>
-  <span class="tag">working dashboard frontend</span>
+  <span class="tag">live HTTPS dashboard</span>
 </div>
 
 <div class="callout">
-  The core problem: the public MRIQC API is fine for record retrieval, but awkward for real-time analysis, filtering, and comparison.
+  The core problem: the public MRIQC API is fine for record retrieval, but awkward for repeated analysis, filtering, upload comparison, and dashboard-style exploration.
 </div>
 :::
 
 ::: {.hero-panel}
 <div class="panel-title">This weekend’s outcome</div>
 
-- pulled and archived representative raw MRIQC API payloads
-- loaded them into PostgreSQL with explicit typing and dedupe metadata
-- exposed dashboard-friendly read endpoints through FastAPI
-- built a working frontend dashboard for metric comparison and dedupe-aware exploration
+- used representative API samples to settle the schema and read model
+- bulk-loaded the larger direct dump into PostgreSQL with resumable ingestion
+- deployed the compose stack publicly with Gunicorn, nginx, and TLS
+- added a dashboard flow for comparing uploaded MRIQC CSVs against the reference archive
 
 <div class="stat-grid">
-  <div class="stat"><span class="value">231,100</span><span class="label">sampled observations</span></div>
+  <div class="stat"><span class="value">4.03M</span><span class="label">loaded observations</span></div>
   <div class="stat"><span class="value">3</span><span class="label">initial modalities</span></div>
-  <div class="stat"><span class="value">676 MB</span><span class="label">raw JSON archived</span></div>
+  <div class="stat"><span class="value">live</span><span class="label">public dashboard</span></div>
 </div>
 :::
 :::
@@ -51,15 +51,15 @@ format:
 <div class="panel-title">Backend work</div>
 
 - migrated against the application-level API contract, not Mongo internals
-- stored exact pulled payloads first, then parsed them into typed tables
+- used pulled API payloads first, then added a direct dump ingestion path
 - kept `t1w`, `t2w`, and `bold` as separate fact tables
-- used `source_api_id` for idempotent upserts
+- made the larger load resumable and safe to rerun without re-calling the API
 - preserved unknown fields in JSON extras instead of over-normalizing early
 
 <div class="pill-list">
   <span class="pill">reproducible ingestion</span>
+  <span class="pill">bulk load + resume</span>
   <span class="pill">typed filters</span>
-  <span class="pill">safe reruns</span>
   <span class="pill">forward-compatible schema</span>
 </div>
 :::
@@ -68,14 +68,14 @@ format:
 <div class="panel-title">Why this matters</div>
 
 <div class="metric-list">
-  <div class="metric"><span class="name">T1w exact duplicate groups</span><span class="number">3,047</span></div>
-  <div class="metric"><span class="name">T2w exact duplicate groups</span><span class="number">13,993</span></div>
-  <div class="metric"><span class="name">bold exact duplicate groups</span><span class="number">11,380</span></div>
-  <div class="metric"><span class="name">API layer now serves</span><span class="number">overview, metrics, duplicates</span></div>
+  <div class="metric"><span class="name">T1w rows now loaded</span><span class="number">2,306,000</span></div>
+  <div class="metric"><span class="name">T2w rows now loaded</span><span class="number">235,813</span></div>
+  <div class="metric"><span class="name">bold rows now loaded</span><span class="number">1,485,445</span></div>
+  <div class="metric"><span class="name">Live stack now serves</span><span class="number">frontend + API + TLS</span></div>
 </div>
 
 <div class="callout">
-  We now have a storage and API shape that matches repeated dashboard reads much better than the original page-oriented service.
+  The sample run got the schema and API shape right; the direct dump path turned that into a usable reference dataset.
 </div>
 :::
 :::
@@ -89,13 +89,13 @@ format:
 - start with overview plus drilldown
 - keep dedupe mode visible: `raw`, `exact`, `series`
 - make filtering simple and stable
-- support a clear researcher question: “how does this slice compare to the broader MRIQC reference set?”
+- support a clear researcher question: “how does my study compare to the broader MRIQC reference set?”
 
 <div class="tag-row">
   <span class="tag">overview cards</span>
   <span class="tag">metric explorer</span>
   <span class="tag">duplicate inspection</span>
-  <span class="tag">shareable filter state</span>
+  <span class="tag">upload overlay</span>
 </div>
 :::
 
@@ -103,13 +103,13 @@ format:
 <div class="panel-title">Design principle</div>
 
 <div class="quote-block">
-  Don’t make users think in API pages and raw documents. Let them think in modalities, filters, metrics, and comparisons.
+  Don’t make users think in API pages and raw documents. Let them think in modalities, filters, metrics, and “where does my upload sit?”
 </div>
 
 <div class="timeline">
-  <div class="timeline-item"><div class="phase">Overview</div><div class="body">How much data is here, and what changes with dedupe mode?</div></div>
-  <div class="timeline-item"><div class="phase">Filter</div><div class="body">What happens if I slice by manufacturer, MRIQC version, date, or task?</div></div>
-  <div class="timeline-item"><div class="phase">Inspect</div><div class="body">What does one metric distribution or duplicate pattern actually look like?</div></div>
+  <div class="timeline-item"><div class="phase">Overview</div><div class="body">How much reference data is here, and what changes with dedupe mode?</div></div>
+  <div class="timeline-item"><div class="phase">Compare</div><div class="body">What happens when I overlay a small uploaded MRIQC CSV on the same metric distribution?</div></div>
+  <div class="timeline-item"><div class="phase">Inspect</div><div class="body">What duplicate or metadata quirks should I understand before using the archive as a benchmark?</div></div>
 </div>
 :::
 :::
@@ -118,51 +118,15 @@ format:
 
 ::: {.grid-2}
 ::: {.card}
-<div class="panel-title">Wireframe direction</div>
+<div class="panel-title">Current dashboard snapshot</div>
 
 ```{=html}
-<div class="mini-browser">
+<div class="mini-browser dashboard-shot">
   <div class="toolbar">
     <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    <code>/overview?view=series&amp;manufacturers=Siemens</code>
+    <code>/?modality=bold&amp;view=series</code>
   </div>
-  <div class="mock-dashboard">
-    <div class="mock-sidebar">
-      <div class="section-title"><strong>Filters</strong><span class="badge">sticky</span></div>
-      <div class="filter-line"></div>
-      <div class="filter-line mid"></div>
-      <div class="filter-line short"></div>
-      <div class="filter-line"></div>
-      <div class="section-title"><strong>View mode</strong><span class="badge">raw / exact / series</span></div>
-      <div class="filter-line mid"></div>
-      <div class="filter-line short"></div>
-    </div>
-    <div class="mock-main">
-      <div class="mock-panel">
-        <div class="section-title"><strong>Archive summary</strong><span class="badge">fast aggregate</span></div>
-        <div class="stat-grid">
-          <div class="stat"><span class="value">7,222</span><span class="label">T1w exact</span></div>
-          <div class="stat"><span class="value">60,670</span><span class="label">T2w exact</span></div>
-          <div class="stat"><span class="value">45,710</span><span class="label">bold exact</span></div>
-        </div>
-      </div>
-      <div class="mock-row">
-        <div class="mock-panel">
-          <div class="section-title"><strong>Metric histogram</strong><span class="badge">same filters</span></div>
-          <div class="chart-bars">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          </div>
-        </div>
-        <div class="mock-panel">
-          <div class="section-title"><strong>Top values</strong><span class="badge">scanner / version</span></div>
-          <div class="list-line"></div>
-          <div class="list-line mid"></div>
-          <div class="list-line short"></div>
-          <div class="list-line"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <img src="images/dashboard-current-default.png" alt="Current MRIQC Aggregator dashboard showing the metric sidebar, dedupe-aware view controls, and a histogram card for AFNI outlier ratio." />
 </div>
 ```
 :::
@@ -170,13 +134,13 @@ format:
 ::: {.card}
 <div class="panel-title">Features we are designing toward</div>
 
-- cohort-versus-reference comparisons
+- uploaded-study versus reference comparisons
 - saved views and shareable URLs
+- recurring refresh instead of one-off backfills
 - smarter serving layers for hot queries
-- clearer duplicate and missingness inspection
 
 <div class="callout">
-  The main design choice is to make the archive legible quickly, then let people drill down without losing context.
+  The UI is no longer just a wireframe problem. The main question now is which comparison workflows deserve to be first-class.
 </div>
 :::
 :::
@@ -184,14 +148,14 @@ format:
 ## Frontend Tech Stack
 
 <div class="stack-grid">
-  <div class="stack-card"><span class="stack-label">UI</span><h3>React + TypeScript</h3><p>The current dashboard is a real React app with sidebar metric selection, dedupe-aware view switching, and a comparison grid.</p></div>
-  <div class="stack-card"><span class="stack-label">Build</span><h3>Vite</h3><p>Local iteration stays fast, and the dashboard can run in the compose stack alongside the API and database.</p></div>
-  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI</h3><p>The frontend reads from overview, metric summary, metric histogram, and duplicate endpoints exposed by the backend.</p></div>
-  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL</h3><p>The dashboard works because the data now lives in typed, indexed tables instead of only behind paged Mongo-backed API reads.</p></div>
+  <div class="stack-card"><span class="stack-label">UI</span><h3>React + TypeScript</h3><p>The dashboard now supports metric search, dedupe-aware view switching, and an uploaded-CSV comparison overlay.</p></div>
+  <div class="stack-card"><span class="stack-label">API</span><h3>FastAPI + Gunicorn</h3><p>The frontend reads from overview, metric summary, histogram, duplicate, and metadata endpoints exposed by the backend.</p></div>
+  <div class="stack-card"><span class="stack-label">Storage</span><h3>PostgreSQL</h3><p>The reference data now sits in typed, indexed tables instead of only behind page-oriented MRIQC API reads.</p></div>
+  <div class="stack-card"><span class="stack-label">Deploy</span><h3>Nginx + Compose</h3><p>The production stack serves the built dashboard at <code>/</code>, proxies <code>/api/</code>, and terminates HTTPS for the live demo site.</p></div>
 </div>
 
 <div class="callout">
-  The important integration story is simple: React frontend, FastAPI read layer, PostgreSQL-backed data model.
+  The integration story is now end to end: React dashboard, FastAPI read layer, PostgreSQL reference data, and a live HTTPS deployment.
 </div>
 
 ## Demo
@@ -201,10 +165,10 @@ format:
 <div class="panel-title">Demo flow</div>
 
 <div class="demo-steps">
-  <div class="demo-step"><div class="step-number">1</div><div><strong>Start on overview.</strong> Show the high-level modality counts.</div></div>
+  <div class="demo-step"><div class="step-number">1</div><div><strong>Start on the live site.</strong> Show the overview cards and current modality counts.</div></div>
   <div class="demo-step"><div class="step-number">2</div><div><strong>Toggle dedupe mode.</strong> Contrast `raw`, `exact`, and `series`.</div></div>
-  <div class="demo-step"><div class="step-number">3</div><div><strong>Open one metric.</strong> Show that the same filters drive the histogram view.</div></div>
-  <div class="demo-step"><div class="step-number">4</div><div><strong>Inspect duplicates.</strong> Explain why this matters before using the archive as a benchmark set.</div></div>
+  <div class="demo-step"><div class="step-number">3</div><div><strong>Upload a tiny MRIQC CSV.</strong> Show the “yours versus global” overlay on one metric.</div></div>
+  <div class="demo-step"><div class="step-number">4</div><div><strong>Inspect duplicates.</strong> Explain why this still matters before using the archive as a benchmark set.</div></div>
 </div>
 :::
 
@@ -219,9 +183,9 @@ GET /api/v1/modalities/{modality}/metrics/{field_name}
 GET /api/v1/modalities/{modality}/duplicates/{kind}
 ```
 
-- backend demo path is real now
-- frontend dashboard is real now and supports live metric comparison
-- the live presentation site is part of the demo story too
+- live deployment: https://mriqcdb-aggregator.site
+- frontend dashboard is real now and supports uploaded-versus-reference comparison
+- backend, frontend, and TLS termination are all part of the production compose story
 :::
 :::
 
@@ -231,22 +195,22 @@ GET /api/v1/modalities/{modality}/duplicates/{kind}
 ::: {.hero-copy}
 <div class="eyebrow">What comes next</div>
 
-<p class="lede"><strong>Next phase:</strong> tighten the dashboard around real researcher workflows and optimize the storage/read path only where usage proves it matters.</p>
+<p class="lede"><strong>Next phase:</strong> turn the one-off backfill and demo deployment into a repeatable researcher workflow.</p>
 
 <div class="roadmap">
-  <div class="roadmap-item"><h3>Frontend</h3><p>Turn the current dashboard direction into a more complete interactive interface.</p></div>
+  <div class="roadmap-item"><h3>Refresh</h3><p>Set up a recurring ingest path instead of treating population as a one-time event.</p></div>
   <div class="roadmap-item"><h3>Serving</h3><p>Add materialized views or pre-aggregates once the hot queries are obvious.</p></div>
-  <div class="roadmap-item"><h3>Comparisons</h3><p>Support cohort-versus-reference workflows more directly.</p></div>
-  <div class="roadmap-item"><h3>Data model</h3><p>Normalize carefully around subjects, sessions, and scanners without inventing false universal keys.</p></div>
+  <div class="roadmap-item"><h3>Comparisons</h3><p>Make upload-versus-reference workflows clearer and more deliberate.</p></div>
+  <div class="roadmap-item"><h3>Data model</h3><p>Normalize carefully around studies, sessions, and scanners only where it clearly helps.</p></div>
 </div>
 :::
 
 ::: {.hero-panel}
 <div class="panel-title">Takeaway</div>
 
-- we made MRIQC DB easier to query
-- we made the ingestion path reproducible
-- we made dedupe visible
-- we created a clearer dashboard direction for continued work
+- we moved from a sampled prototype to a live reference service
+- we made the ingest and deploy paths reproducible
+- we made dedupe and upload comparison visible in the UI
+- we have a clear next step: operationalize refresh and tighten analyst workflows
 :::
 :::
