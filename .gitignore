@@ -7,3 +7,5 @@ test-results/
 
 
 /.quarto/
+
+**/*.quarto_ipynb

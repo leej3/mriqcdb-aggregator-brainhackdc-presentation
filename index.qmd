@@ -8,7 +8,7 @@ format:
     footer: "MRIQC DB Aggregator"
 ---
 
-## Summary
+## Summary {.summary-slide .section-scale}
 
 ::: {.hero-grid}
 ::: {.hero-copy}
@@ -44,9 +44,9 @@ format:
 :::
 :::
 
-## Backend
+## Backend {.section-scale}
 
-::: {.grid-2}
+::: {.grid-2 .design-equal}
 ::: {.card}
 <div class="panel-title">Backend work</div>
 
@@ -82,7 +82,7 @@ format:
 
 ## Dashboard Design I
 
-::: {.grid-2}
+::: {.grid-2 .design-wide}
 ::: {.card}
 <div class="panel-title">Design goals</div>
 
